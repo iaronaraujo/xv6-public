@@ -14,6 +14,7 @@ struct {
 
 static struct proc *initproc;
 
+int randNum = 0;
 int nextpid = 1;
 extern void forkret(void);
 extern void trapret(void);
@@ -88,7 +89,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
-  p->niceness = 2;
+  p->niceness = randNum;
 
   release(&ptable.lock);
 
@@ -121,7 +122,6 @@ found:
 void
 userinit(void)
 {
-  cprintf("userinit");
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
@@ -265,6 +265,7 @@ exit(void)
 
   // Jump into the scheduler, never to return.
   curproc->state = ZOMBIE;
+
   sched();
   panic("zombie exit");
 }
@@ -326,6 +327,14 @@ void updateNiceness() {
   }
 }
 
+int updateRandom(int randNum) {
+  if (randNum == 9) {
+    return 0;
+  } else {
+    return randNum + 1;
+  }
+}
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -338,21 +347,28 @@ void
 scheduler(void)
 {
   struct proc *p;
+  struct proc *aux;
   struct cpu *c = mycpu();
+  randNum = 0;
   c->proc = 0;
-  
+
   for(;;){
     // Enable interrupts on this processor.
     sti();
 
     // Loop over process table looking for process to run.
-    struct proc *aux;
     int bestniceness = 10;
+    int flag = 0;
     acquire(&ptable.lock);
+    
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+      randNum = updateRandom(randNum);
+
       if(p->state != RUNNABLE)
         continue;
 
+      flag = 1;
+      
       if(p->niceness < bestniceness) {
         bestniceness = p->niceness;
         aux = p;
@@ -363,21 +379,24 @@ scheduler(void)
       }
     }
 
-    updateNiceness();
-    aux->niceness = 9;
-    // Switch to chosen process.  It is the process's job
-    // to release ptable.lock and then reacquire it
-    // before jumping back to us.
-    c->proc = aux;
-    switchuvm(aux);
-    aux->state = RUNNING;
+    if (flag) {
+      cprintf("Pid do processo: %d, Niceness do processo: %d\n", aux->pid, aux->niceness);
+      updateNiceness();
+      aux->niceness = 9;
+      // Switch to chosen process.  It is the process's job
+      // to release ptable.lock and then reacquire it
+      // before jumping back to us.
+      c->proc = aux;
+      switchuvm(aux);
+      aux->state = RUNNING;
 
-    swtch(&(c->scheduler), aux->context);
-    switchkvm();
+      swtch(&(c->scheduler), aux->context);
+      switchkvm();
 
-    // Process is done running for now.
-    // It should have changed its p->state before coming back.
-    c->proc = 0;
+      // Process is done running for now.
+      // It should have changed its p->state before coming back.
+      c->proc = 0;
+    }
 
     release(&ptable.lock);
 
