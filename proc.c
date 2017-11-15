@@ -88,6 +88,7 @@ allocproc(void)
 found:
   p->state = EMBRYO;
   p->pid = nextpid++;
+  p->niceness = 2;
 
   release(&ptable.lock);
 
@@ -120,6 +121,7 @@ found:
 void
 userinit(void)
 {
+  cprintf("userinit");
   struct proc *p;
   extern char _binary_initcode_start[], _binary_initcode_size[];
 
@@ -311,6 +313,19 @@ wait(void)
   }
 }
 
+void updateNiceness() {
+  struct proc *p;
+
+  for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+    if(p->state != RUNNABLE)
+      continue;
+
+    if (p->niceness > 0) {
+      p->niceness = p->niceness - 1;
+    }
+  }
+}
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -331,25 +346,39 @@ scheduler(void)
     sti();
 
     // Loop over process table looking for process to run.
+    struct proc *aux;
+    int bestniceness = 10;
     acquire(&ptable.lock);
     for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
       if(p->state != RUNNABLE)
         continue;
 
-      // Switch to chosen process.  It is the process's job
-      // to release ptable.lock and then reacquire it
-      // before jumping back to us.
-      c->proc = p;
-      switchuvm(p);
-      p->state = RUNNING;
+      if(p->niceness < bestniceness) {
+        bestniceness = p->niceness;
+        aux = p;
+      }
 
-      swtch(&(c->scheduler), p->context);
-      switchkvm();
-
-      // Process is done running for now.
-      // It should have changed its p->state before coming back.
-      c->proc = 0;
+      if (bestniceness == 0) {
+        break;
+      }
     }
+
+    updateNiceness();
+    aux->niceness = 9;
+    // Switch to chosen process.  It is the process's job
+    // to release ptable.lock and then reacquire it
+    // before jumping back to us.
+    c->proc = aux;
+    switchuvm(aux);
+    aux->state = RUNNING;
+
+    swtch(&(c->scheduler), aux->context);
+    switchkvm();
+
+    // Process is done running for now.
+    // It should have changed its p->state before coming back.
+    c->proc = 0;
+
     release(&ptable.lock);
 
   }
