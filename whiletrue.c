@@ -4,7 +4,7 @@
 
 int main(void) {
 	uint flag = 0;
-	uint i = 0;
+	uint i = 0;/*
 	uint pid = fork();
 	if (pid == 0){
 		flag = 1;
@@ -16,7 +16,7 @@ int main(void) {
 				flag = 3;
 			}	
 		}			
-	}	 	
+	}*/	 	
 	while(i < 100){
 		printf(1, "Number: %d\n", flag);
 		i = i + 1;

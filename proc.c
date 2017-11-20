@@ -335,6 +335,23 @@ int updateRandom(int randNum) {
   }
 }
 
+void printProcs(struct proc *aux){
+	struct proc *p;
+	cprintf("Pid: %d, Niceness: %d\n", aux->pid, aux->niceness);
+	cprintf("Niceness dos outros:");
+	for(p = ptable.proc; p < &ptable.proc[NPROC]; p++){
+	    if(p->state != RUNNABLE)
+          continue;
+      
+        if(p == aux)
+	      continue;
+	  
+	    cprintf(" %d", p->niceness);
+	}
+	cprintf("\n");    
+	
+}	
+
 //PAGEBREAK: 42
 // Per-CPU process scheduler.
 // Each CPU calls scheduler() after setting itself up.
@@ -380,7 +397,8 @@ scheduler(void)
     }
 
     if (flag) {
-      cprintf("Pid do processo: %d, Niceness do processo: %d\n", aux->pid, aux->niceness);
+      //cprintf("Pid do processo: %d, Niceness do processo: %d\n", aux->pid, aux->niceness);
+      printProcs(aux);
       updateNiceness();
       aux->niceness = 9;
       // Switch to chosen process.  It is the process's job
